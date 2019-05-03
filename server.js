@@ -26,6 +26,10 @@ app.get('/weather', (req, res) => checkTable('weather', req, handleExistingTable
 
 app.get('/events', (req, res) => checkTable('events', req, handleExistingTable, res));
 
+app.get('/movies', (req, res) => checkTable('movies', req, handleExistingTable, res));
+
+
+
 //uses google API to fetch coordinate data to send to front end using superagent
 //has a catch method to handle bad user search inputs in case google maps cannot
 //find location
@@ -56,7 +60,11 @@ function handleExistingTable(result){
 
 function checkTable(tableName, request, function1, response){
   let sqlStatement = `SELECT * FROM ${tableName} WHERE search_query=$1`;
+  console.log(request.query);
+
   let values = [request.query.data.search_query];
+  console.log("TEST " +request.query.data[0]);
+
   return client.query(sqlStatement, values)
     .then(result => {
       if (result.rowCount > 0) {
@@ -64,11 +72,14 @@ function checkTable(tableName, request, function1, response){
       } else {
         if (tableName === 'weather') {
           return weatherApp(request, response);
-        } else {
+        } else if(tableName === 'events') {
           return eventsApp(request, response);
+        } else if(tableName === 'movies') {
+          return moviesApp(request, response);
         }
       }
     })
+    .catch(err => console.log(err));
 }
 
 //creates darksky API url, then uses superagent to make call
@@ -88,6 +99,26 @@ function weatherApp(req, res) {
     })
     .catch(error => handleError(error, res));
 }
+
+function moviesApp(req, res) {
+  // console.log('reqQuery', req.query);
+  const moviesUrl = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIES_API_KEY}&language=en-US&query=${req.query.data}&page=1&include_adult=false`;
+
+  // return superagent.get(moviesUrl)
+  //   .then(result => {
+  //     const moviesSummaries = result.body.events.slice(0, 20).map(event => new Event(event));
+  //     moviesSummaries.forEach(item => {
+  //       let insertStatement = 'INSERT INTO events (title, overview, average_votes, total_votes, image_url, popularity, released_on, search_query, created_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9);';
+  //       let insertValues = [ item.title, item.overview, item.average_votes, item.total_votes, item.image_url, item.popularity, item.released_on, req.query.data.search_query, item.created_at];
+  //       return client.query(insertStatement, insertValues);
+  //     })
+  //     res.send(moviesSummaries);
+  //   })
+  //   .catch(error => handleError(error, res));
+}
+
+
+
 
 function eventsApp(req, res) {
   const eventBriteUrl = `https://www.eventbriteapi.com/v3/events/search/?location.within=10mi&location.latitude=${req.query.data.latitude}&location.longitude=${req.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`;
@@ -128,6 +159,16 @@ function Event(data) {
   this.event_date = new Date(data.start.local).toDateString();
   this.summary = data.description.text;
   this.created_at = Date.now();
+}
+
+function Movies(title, overview, average_votes, total_votes, image_url, popularity, released_on){
+  this.title = title;
+  this.overview = overview;
+  this.average_votes =average_votes;
+  this.total_votes = total_votes;
+  this.image_url = image_url;
+  this.popularity = popularity;
+  this.released_on = released_on;
 }
 
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
