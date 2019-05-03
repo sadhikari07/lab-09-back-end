@@ -5,7 +5,8 @@ CREATE TABLE location (
   latitude DECIMAL,
   longitude DECIMAL,
   formatted_query TEXT,
-  search_query TEXT
+  search_query TEXT,
+  created_at TEXT
 );
 
 DROP TABLE IF EXISTS weather;
@@ -26,4 +27,18 @@ CREATE TABLE events (
     summary TEXT,
     search_query TEXT,
     created_at TEXT
+);
+
+DROP TABLE IF EXISTS movies;
+CREATE TABLE movies (
+    id SERIAL PRIMARY KEY,
+    title TEXT,
+    overview TEXT,
+    average_votes DECIMAL,
+    total_votes INTEGER,
+    image_url TEXT,
+    popularity DECIMAL,
+    released_on TEXT,
+    search_query TEXT,
+    created_at TIMESTAMP DEFAULT NOW()   
 );

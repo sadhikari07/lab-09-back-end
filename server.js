@@ -26,6 +26,10 @@ app.get('/weather', (req, res) => checkTable('weather', req, handleExistingTable
 
 app.get('/events', (req, res) => checkTable('events', req, handleExistingTable, res));
 
+app.get('/movies', (req, res) => checkTable('movies', req, handleExistingTable, res));
+
+
+
 //uses google API to fetch coordinate data to send to front end using superagent
 //has a catch method to handle bad user search inputs in case google maps cannot
 //find location
@@ -57,6 +61,7 @@ function handleExistingTable(result){
 function checkTable(tableName, request, function1, response){
   let sqlStatement = `SELECT * FROM ${tableName} WHERE search_query=$1`;
   let values = [request.query.data.search_query];
+
   return client.query(sqlStatement, values)
     .then(result => {
       if (result.rowCount > 0) {
@@ -64,11 +69,14 @@ function checkTable(tableName, request, function1, response){
       } else {
         if (tableName === 'weather') {
           return weatherApp(request, response);
-        } else {
+        } else if (tableName === 'events') {
           return eventsApp(request, response);
+        } else if (tableName === 'movies') {
+          return moviesApp(request, response);
         }
       }
     })
+    .catch(err => console.log(err));
 }
 
 //creates darksky API url, then uses superagent to make call
@@ -85,6 +93,25 @@ function weatherApp(req, res) {
         client.query(insertStatement, insertValues);
       })
       res.send(weatherSummaries);
+    })
+    .catch(error => handleError(error, res));
+}
+
+function moviesApp(req, res) {
+  const moviesUrl = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIES_API_KEY}&language=en-US&query=${req.query.data.search_query}&page=1&include_adult=false`;
+
+  return superagent.get(moviesUrl)
+    .then(result => {
+      const moviesSummaries = result.body.results.slice(0, 20);
+
+      moviesSummaries
+        .map(movie => new Movie(movie))
+        .forEach(item => {
+          let insertStatement = 'INSERT INTO movies (title, overview, average_votes, total_votes, image_url, popularity, released_on, search_query) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8);';
+          let insertValues = [ item.title, item.overview, item.average_votes, item.total_votes, item.image_url, item.popularity, item.released_on, req.query.data.search_query];
+          return client.query(insertStatement, insertValues);
+        })
+      res.send(moviesSummaries);
     })
     .catch(error => handleError(error, res));
 }
@@ -128,6 +155,16 @@ function Event(data) {
   this.event_date = new Date(data.start.local).toDateString();
   this.summary = data.description.text;
   this.created_at = Date.now();
+}
+
+function Movie(movie){
+  this.title = movie.title;
+  this.overview = movie.overview;
+  this.average_votes = movie.vote_average;
+  this.total_votes = movie.vote_count;
+  this.image_url = `https://image.tmdb.org/t/p/w200${movie.poster_path}`;
+  this.popularity = movie.popularity;
+  this.released_on = movie.released_date;
 }
 
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
