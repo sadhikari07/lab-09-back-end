@@ -60,10 +60,7 @@ function handleExistingTable(result){
 
 function checkTable(tableName, request, function1, response){
   let sqlStatement = `SELECT * FROM ${tableName} WHERE search_query=$1`;
-  console.log(request.query);
-
   let values = [request.query.data.search_query];
-  console.log("TEST " +request.query.data[0]);
 
   return client.query(sqlStatement, values)
     .then(result => {
@@ -72,9 +69,9 @@ function checkTable(tableName, request, function1, response){
       } else {
         if (tableName === 'weather') {
           return weatherApp(request, response);
-        } else if(tableName === 'events') {
+        } else if (tableName === 'events') {
           return eventsApp(request, response);
-        } else if(tableName === 'movies') {
+        } else if (tableName === 'movies') {
           return moviesApp(request, response);
         }
       }
@@ -101,24 +98,23 @@ function weatherApp(req, res) {
 }
 
 function moviesApp(req, res) {
-  // console.log('reqQuery', req.query);
-  const moviesUrl = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIES_API_KEY}&language=en-US&query=${req.query.data}&page=1&include_adult=false`;
+  const moviesUrl = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIES_API_KEY}&language=en-US&query=${req.query.data.search_query}&page=1&include_adult=false`;
 
-  // return superagent.get(moviesUrl)
-  //   .then(result => {
-  //     const moviesSummaries = result.body.events.slice(0, 20).map(event => new Event(event));
-  //     moviesSummaries.forEach(item => {
-  //       let insertStatement = 'INSERT INTO events (title, overview, average_votes, total_votes, image_url, popularity, released_on, search_query, created_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9);';
-  //       let insertValues = [ item.title, item.overview, item.average_votes, item.total_votes, item.image_url, item.popularity, item.released_on, req.query.data.search_query, item.created_at];
-  //       return client.query(insertStatement, insertValues);
-  //     })
-  //     res.send(moviesSummaries);
-  //   })
-  //   .catch(error => handleError(error, res));
+  return superagent.get(moviesUrl)
+    .then(result => {
+      const moviesSummaries = result.body.results.slice(0, 20);
+
+      moviesSummaries
+        .map(movie => new Movie(movie))
+        .forEach(item => {
+          let insertStatement = 'INSERT INTO movies (title, overview, average_votes, total_votes, image_url, popularity, released_on, search_query) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8);';
+          let insertValues = [ item.title, item.overview, item.average_votes, item.total_votes, item.image_url, item.popularity, item.released_on, req.query.data.search_query];
+          return client.query(insertStatement, insertValues);
+        })
+      res.send(moviesSummaries);
+    })
+    .catch(error => handleError(error, res));
 }
-
-
-
 
 function eventsApp(req, res) {
   const eventBriteUrl = `https://www.eventbriteapi.com/v3/events/search/?location.within=10mi&location.latitude=${req.query.data.latitude}&location.longitude=${req.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`;
@@ -161,14 +157,14 @@ function Event(data) {
   this.created_at = Date.now();
 }
 
-function Movies(title, overview, average_votes, total_votes, image_url, popularity, released_on){
-  this.title = title;
-  this.overview = overview;
-  this.average_votes =average_votes;
-  this.total_votes = total_votes;
-  this.image_url = image_url;
-  this.popularity = popularity;
-  this.released_on = released_on;
+function Movie(movie){
+  this.title = movie.title;
+  this.overview = movie.overview;
+  this.average_votes = movie.vote_average;
+  this.total_votes = movie.vote_count;
+  this.image_url = `https://image.tmdb.org/t/p/w200${movie.poster_path}`;
+  this.popularity = movie.popularity;
+  this.released_on = movie.released_date;
 }
 
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
